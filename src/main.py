@@ -1,17 +1,65 @@
 #!/usr/bin/python3
 
 import paho.mqtt.client as mqtt
+
+from paho.mqtt.properties import Properties
+from paho.mqtt.packettypes import PacketTypes
+
 import time
+
+from datetime import date
+from datetime import datetime
+
 import os
 
+#Dict containing list of request-response topics
+topic_list = {
+    'welcome':[
+        'req/pref/welcomeTime',
+        'pref/welcomeTime' 
+    ],
+    'weather':[
+        'req/weather/now',
+        'weather/now' 
+    ],
+    'ride':[
+        'req/rideTime',
+        'rideTime' 
+    ],
+    'appointment':[
+        'req/appointment/range',
+        'appointment/range' 
+    ]
+}
+
+data = {
+    'start': None,
+    'date': None,
+    'weather': None,
+    'travel': None,
+    'appointment': None
+}
+ 
 def on_connect(client,userdata,flags, rc):
-    #Hier sollten alle Topics aufgelistet werden, auf welche gehört werden soll
-    #Der integer-Wert im Tuple ist egal, da er nicht von der Methode verwendet wird
-    client.subscribe([("test/Pfad/1",0),("test/Pfad/2",0)])
+    #Subscribe to topic to receive response-messages
+    for cat in topic_list:
+        client.subscribe((topic_list[cat][1], 0))
+        print('Subscribed to Topic:',topic_list[cat][1])
 
 #Diese Funktion wird aufgerufen, wenn es für ein Topic kein spezielles Callback gibt
 def on_message(client, userdata, msg):
-    print(msg.topic+" "+str(msg.payload))
+    if topic_list['welcome'][1] == msg.topic:
+        data['start'] = str(msg.payload.decode("utf-8"))
+        print(msg.topic+" "+str(msg.payload.decode("utf-8")))
+    elif topic_list['weather'][1] == msg.topic:
+        data['weather'] = str(msg.payload)
+        print(msg.topic+" "+str(msg.payload))
+    elif topic_list['ride'][1] == msg.topic:
+        data['travel'] = str(msg.payload)
+        print(msg.topic+" "+str(msg.payload))
+    elif topic_list['appointment'][1] == msg.topic:
+        data['appointment'] = str(msg.payload)
+        print(msg.topic+" "+str(msg.payload))
 
 def specific_callback(client, userdata, msg):
     print("Specific Topic: "+msg.topic+" "+str(msg.payload))
@@ -19,15 +67,13 @@ def specific_callback(client, userdata, msg):
 def function2Test():
     return True
 
-if __name__ == "__main__": # pragma: no cover
-    #aufbau der MQTT-Verbindung
+if __name__ == "__main__": # pragma: no cover      
+    #connect to mqtt 
     client = mqtt.Client()
     client.on_connect = on_connect
     client.on_message = on_message
 
-    #Definition einer Callback-Funktion für ein spezielles Topic
-    client.message_callback_add("test/Pfad/2", specific_callback)
-
+    #configer and connect docker-container with mqttt
     docker_container = os.environ.get('DOCKER_CONTAINER', False)
     if docker_container:
         mqtt_address = "broker"
@@ -35,13 +81,21 @@ if __name__ == "__main__": # pragma: no cover
         mqtt_address = "localhost"
     client.connect(mqtt_address,1883,60)
     client.loop_start()
+    time.sleep(2)
+
+    #retrieve time when welcome message should be played
+    client.publish(topic_list['welcome'][0])
+    time.sleep(2)
+    client.publish(topic_list['weather'][0])
+    time.sleep(2)
+    client.publish(topic_list['ride'][0])
+    time.sleep(2)
+    client.publish(topic_list['appointment'][0])
 
     #Hier kann der eigene Code stehen. Loop oder Threads
     while True:
         time.sleep(5)
         client.publish("test/Pfad/1", "asdf")
-        time.sleep(5)
-        client.publish("test/Pfad/2", "jklm")
 
     #Sollte am Ende stehen, da damit die MQTT-Verbindung beendet wird
     client.loop_stop()
