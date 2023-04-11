@@ -35,6 +35,7 @@ topic_list = {
 data = {
     'start': None,
     'date': None,
+    'lastdate': None,
     'weather': None,
     'travel': None,
     'appointment': None
@@ -81,21 +82,28 @@ if __name__ == "__main__": # pragma: no cover
         mqtt_address = "localhost"
     client.connect(mqtt_address,1883,60)
     client.loop_start()
-    time.sleep(2)
+    time.sleep(5)
 
     #retrieve time when welcome message should be played
     client.publish(topic_list['welcome'][0])
-    time.sleep(2)
-    client.publish(topic_list['weather'][0])
-    time.sleep(2)
-    client.publish(topic_list['ride'][0])
-    time.sleep(2)
-    client.publish(topic_list['appointment'][0])
+    
 
     #Hier kann der eigene Code stehen. Loop oder Threads
     while True:
-        time.sleep(5)
-        client.publish("test/Pfad/1", "asdf")
+        c_dateTime = datetime.now()
+        current_time = str(c_dateTime.time())[0:5]
+        if current_time == data['start'] and data['lastdate'] != c_dateTime.date():
+           data['lastdate'] = c_dateTime.date()   
+
+           #get data for current date and time
+           for topic in topic_list:
+                if topic != 'welcome':
+                    client.publish(topic_list[topic][0])    
+           
+           #tts aquired data
+           str = "Guten Morgen, es ist " + data['start']
+           client.publish('tts', str)
+           
 
     #Sollte am Ende stehen, da damit die MQTT-Verbindung beendet wird
     client.loop_stop()
