@@ -5,7 +5,6 @@ import paho.mqtt.client as mqtt
 import time
 import json
 
-from datetime import date
 from datetime import datetime
 
 import os
@@ -46,11 +45,14 @@ def on_message(client, userdata, msg):
 
     #ride: returns time for users daily commute from home to uni/work
     elif msg.topic == messenger.topic_list['ride']['response']:
-        print("DEBUG ", __file__, ": ", "Topic", msg.topic, " Payload:", str(msg.payload.decode("utf-8"))),
+        messenger.data['travel'] = json.loads(msg.payload.decode("utf-8"))
+        messenger.data['travel'] = messenger.data['travel']['travelTime']
 
     #appointment: appointments the user has for the day
     elif msg.topic == messenger.topic_list['appointment']['response']:
-        print("DEBUG ", __file__, ": ", "Topic", msg.topic, " Payload:", str(msg.payload.decode("utf-8"))),
+        messenger.data['event'] = json.loads(msg.payload.decode("utf-8"))
+        messenger.data['event'] = messenger.data['event']['events']
+        print(messenger.data['event'])
 
 def specific_callback(client, userdata, msg):
     print("Specific Topic: "+ msg.topic+" "+str(msg.payload))
@@ -76,6 +78,8 @@ if __name__ == "__main__": # pragma: no cover
 
     #retrieve time when welcome message should be played
     messenger.request_welcomeTime(client)   
+    time.sleep(2)
+    messenger.data['lastWelcome'] = datetime.now().date()
 
     #Hier kann der eigene Code stehen. Loop oder Threads
     while True:
@@ -83,25 +87,41 @@ if __name__ == "__main__": # pragma: no cover
         c_dateTime = datetime.now()
         #retrieve hour and time to compare
         current_time = str(c_dateTime.time())[0:5]
+        print("DEBUG ", __file__, ": ", current_time, " ", messenger.data['start'], " ", messenger.data['lastWelcome'], " ", c_dateTime.date())
         #check if currentTime is welcomeTime and if welcomeMessage was already played 
-        if current_time != messenger.data['start'] and messenger.data['lastWelcome'] != c_dateTime.date():
+        if current_time != messenger.data['start'] and messenger.data['lastWelcome'] == c_dateTime.date():
             #update last date welcomeTime is played to prevent second excecution
             messenger.data['lastWelcome'] = c_dateTime.date()   
 
             #get required data for welcome message 
-            #messenger.request_weather(client)                          #weather: WIP(no returns)
+            messenger.request_weather(client)                          #weather: WIP(no returns)
             messenger.request_priority(client)                          #transport priority
+            time.sleep(2)
             messenger.request_location(client)                          #location
-            messenger.request_appointment(client, c_dateTime)           #todays appointments: WIP(no returns)
+            time.sleep(2)
+            messenger.request_appointment(client, c_dateTime.date())    #todays appointments: 
 
             #empty loop waits until priority and location are filled with data
             #otherwise it may happen that request is send before data of priority and location are aquired
-            time.sleep(10)
+            time.sleep(2)
             messenger.request_rideTime(client)      #ride time from home to uni
-           
+            time.sleep(2)
+
+            print(messenger.data['travel'])
+            if messenger.data['travel']:
+                travel = 'Deine vorraussichtliche heutige Reisezeit beträgt ' + str(int(messenger.data['travel']/60)) + ' Minuten. '
+            else:
+                travel = 'Es konnte keine Prognose zur heutigen Reisezeit ermittelt werden.'
+
+            if messenger.data['event']:    
+                event = 'Die Ausgabe von Events sind noch Work in Progress'
+            else:
+                event = "Es stehen für heute keine Termine an."
+
+
             #build tts message and publish message to tts
-            tts = "Guten Morgen, es ist " + messenger.data['start']
-            #client.publish('tts', str)
+            tts = "Guten Morgen, es ist " + current_time + ". Heute wird ein " + messenger.data['weather'] + " Tag. " + travel + ". " + event
+            client.publish('tts', tts)
 
         #wait some time before polling again
         time.sleep(30)

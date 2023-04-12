@@ -57,42 +57,46 @@ data = {
     'start': None,
     'date': None,
     'lastWelcome': None,
-    'weather': None,
+    'weather': 'sonniger',
     'location': location,
     'priority': None,
     'travel': None,
-    'appointment': None
+    'event': None
 }
  
 
 #requests time when welcome message should be played
 #time is defined in preference in the main process
 def request_welcomeTime(client):
+    print("PUBLISH ", __file__, ": Message sent to ", topic_list['welcome']['request'])
     client.publish(topic_list['welcome']['request'])
 
 #request current weather data from weather service
 #WIP
 def request_weather(client):
+    print("PUBLISH ", __file__, ": Message sent to ", topic_list['weather']['request'])
     client.publish(topic_list['weather']['request'])
-    pass
 
 #request location of common places (e.g. home, work, uni)
 def request_location(client):
+    print("PUBLISH ", __file__, ": Message sent to ", topic_list['location']['request'])
     client.publish(topic_list['location']['request'])
-    pass
 
 #request travel priority by which the user prefers to travel
 def request_priority(client):
+    print("PUBLISH ", __file__, ": Message sent to ", topic_list['priority']['request'])
     client.publish(topic_list['priority']['request'])
-    pass
 
+#request travel time, needs location and transport priority
 def request_rideTime(client):
     message = ''
     vehicle = data['priority'][0]
 
     #dependend on transport option different data is required for a request
-    if vehicle == 'car' or vehicle == 'walk' or vehicle == 'bicycle':
-        message = str({
+    if vehicle == 'car' or vehicle == 'walk' or vehicle == 'bike':
+        if vehicle == 'walk': vehicle = 'pedestrian'
+        if vehicle == 'bike': vehicle = 'bicycle'
+        message = json.dumps({
             "from":{
                 "lat":location['home']['lat'],
                 "lon":location['home']['long']},
@@ -104,13 +108,16 @@ def request_rideTime(client):
 
     #public transport required stationid from api, henceforth fixed ids are used
     elif vehicle == 'publicTransport':
-        message = str({"from":location['home']['publicID'],"to": location['uni']['publicID'],"transportType":vehicle})
+        message = json.dumps({"from":location['home']['publicID'],"to": location['uni']['publicID'],"transportType":vehicle})
             
-    client.publish(topic_list['ride']['request'], json.dumps(message, indent=3))
-    print("DEBUG ", __file__, ": Message sent to ", topic_list['ride']['request'], "with message:", message)
+    print("PUBLISH ", __file__, ": Message sent to ", topic_list['ride']['request'], "with message:", message)
+    client.publish(topic_list['ride']['request'], message)
 
 
 def request_appointment(client, date):
-    message = "{\'start\':\'" + date.strftime("%Y-%m-%d") + "T00:00:00+02:00\', \'end\':\'" + date.strftime("%Y-%m-%d") + "T23:59:59+02:00\'}"
-    client.publish(topic_list['appointment']['request'], json.dumps(message, indent=3))
-    print("DEBUG ", __file__, ": Message sent to ", topic_list['appointment']['request'], "with message:", message)
+    startTime = str(date) + 'T00:00:00+02:00'
+    endTime = str(date) + 'T23:59:59+02:00'
+    message = json.dumps({'start':startTime,'end':endTime})
+
+    print("PUBLISH ", __file__, ": Message sent to ", topic_list['appointment']['request'], "with message:", message)
+    client.publish(topic_list['appointment']['request'], message)
