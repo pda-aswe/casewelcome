@@ -107,9 +107,8 @@ if __name__ == "__main__": # pragma: no cover
             messenger.request_rideTime(client)      #ride time from home to uni
             time.sleep(2)
 
-            print(messenger.data['travel'])
             if messenger.data['travel']:
-                travel = 'Deine vorraussichtliche heutige Reisezeit beträgt ' + str(int(messenger.data['travel']/60)) + ' Minuten. '
+                travel = 'Deine vorraussichtliche Reisezeit beträgt ' + str(int(messenger.data['travel']/60)) + ' Minuten. '
             else:
                 travel = 'Es konnte keine Prognose zur heutigen Reisezeit ermittelt werden.'
 
@@ -120,7 +119,7 @@ if __name__ == "__main__": # pragma: no cover
 
 
             #build tts message and publish message to tts
-            tts = "Guten Morgen, es ist " + current_time + ". Heute wird ein " + messenger.data['weather'] + " Tag. " + travel + ". " + event
+            tts = "Guten Morgen, es ist " + current_time + ". Heute wird ein " + messenger.data['weather'] + " Tag. " + travel + " " + event + ". Ich wünsche dir noch einen schönen Tag."
             client.publish('tts', tts)
 
         #wait some time before polling again
