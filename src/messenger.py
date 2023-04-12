@@ -93,9 +93,7 @@ def request_rideTime(client):
     vehicle = data['priority'][0]
 
     #dependend on transport option different data is required for a request
-    if vehicle == 'car' or vehicle == 'walk' or vehicle == 'bike':
-        if vehicle == 'walk': vehicle = 'pedestrian'
-        if vehicle == 'bike': vehicle = 'bicycle'
+    if vehicle == 'car' or vehicle == 'pedestrian' or vehicle == 'bicycle':
         message = json.dumps({
             "from":{
                 "lat":location['home']['lat'],
