@@ -4,6 +4,7 @@ from paho.mqtt.properties import Properties
 from paho.mqtt.packettypes import PacketTypes
 
 import json
+import datetime
 
 #Dict containing list of request-response topics
 topic_list = {
@@ -105,9 +106,11 @@ def request_rideTime(client):
     elif vehicle == 'publicTransport':
         message = str({"from":location['home']['publicID'],"to": location['uni']['publicID'],"transportType":vehicle})
             
-    print("DEBUG ", __file__, ": ", message)
     client.publish(topic_list['ride']['request'], json.dumps(message, indent=3))
+    print("DEBUG ", __file__, ": Message sent to ", topic_list['ride']['request'], "with message:", message)
 
 
-def request_appointment():
-    pass
+def request_appointment(client, date):
+    message = "{\'start\':\'" + date.strftime("%Y-%m-%d") + "T00:00:00+02:00\', \'end\':\'" + date.strftime("%Y-%m-%d") + "T23:59:59+02:00\'}"
+    client.publish(topic_list['appointment']['request'], json.dumps(message, indent=3))
+    print("DEBUG ", __file__, ": Message sent to ", topic_list['appointment']['request'], "with message:", message)

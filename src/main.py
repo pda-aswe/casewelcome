@@ -17,11 +17,11 @@ def on_connect(client,userdata,flags, rc):
     #Subscribe to topic to receive response-messages
     for topic in messenger.topic_list:
         client.subscribe((messenger.topic_list[topic]['response'], 0))
-        print('Subscribed to Topic:', messenger.topic_list[topic]['response'])
+        print("DEBUG ", __file__, ": ", 'Subscribed to Topic:', messenger.topic_list[topic]['response'])
 
 #Diese Funktion wird aufgerufen, wenn es für ein Topic kein spezielles Callback gibt
 def on_message(client, userdata, msg):
-    print("Topic", msg.topic, " Payload:", str(msg.payload.decode("utf-8"))),
+    print("DEBUG ", __file__, ": ", "Topic", msg.topic, " Payload:", str(msg.payload.decode("utf-8"))),
 
     #welcomeTime: time welcome message should be played
     if messenger.topic_list['welcome']['response'] == msg.topic:
@@ -46,7 +46,11 @@ def on_message(client, userdata, msg):
 
     #ride: returns time for users daily commute from home to uni/work
     elif msg.topic == messenger.topic_list['ride']['response']:
-        print("Topic", msg.topic, " Payload:", str(msg.payload.decode("utf-8"))),
+        print("DEBUG ", __file__, ": ", "Topic", msg.topic, " Payload:", str(msg.payload.decode("utf-8"))),
+
+    #appointment: appointments the user has for the day
+    elif msg.topic == messenger.topic_list['appointment']['response']:
+        print("DEBUG ", __file__, ": ", "Topic", msg.topic, " Payload:", str(msg.payload.decode("utf-8"))),
 
 def specific_callback(client, userdata, msg):
     print("Specific Topic: "+ msg.topic+" "+str(msg.payload))
@@ -80,25 +84,24 @@ if __name__ == "__main__": # pragma: no cover
         #retrieve hour and time to compare
         current_time = str(c_dateTime.time())[0:5]
         #check if currentTime is welcomeTime and if welcomeMessage was already played 
-        if current_time == messenger.data['start'] and messenger.data['lastdate'] != c_dateTime.date():
+        if current_time != messenger.data['start'] and messenger.data['lastWelcome'] != c_dateTime.date():
             #update last date welcomeTime is played to prevent second excecution
-            messenger.data['lastdate'] = c_dateTime.date()   
+            messenger.data['lastWelcome'] = c_dateTime.date()   
 
             #get required data for welcome message 
-            #messenger.request_weather(client)      #weather: WIP
-            messenger.request_priority(client)      #transport priority
-            messenger.request_location(client)      #location
-            messenger.request_appointment(client)   #todays appointments: WIP
+            #messenger.request_weather(client)                          #weather: WIP(no returns)
+            messenger.request_priority(client)                          #transport priority
+            messenger.request_location(client)                          #location
+            messenger.request_appointment(client, c_dateTime)           #todays appointments: WIP(no returns)
 
             #empty loop waits until priority and location are filled with data
             #otherwise it may happen that request is send before data of priority and location are aquired
-            while messenger.data['priority'] == None and None not in messenger.data['location'].values():
-                ()
+            time.sleep(10)
             messenger.request_rideTime(client)      #ride time from home to uni
            
             #build tts message and publish message to tts
             tts = "Guten Morgen, es ist " + messenger.data['start']
-            client.publish('tts', str)
+            #client.publish('tts', str)
 
         #wait some time before polling again
         time.sleep(30)
