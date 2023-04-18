@@ -58,7 +58,6 @@ def on_message(client, userdata, msg):
         data['event'] = json.loads(msg.payload.decode("utf-8"))
         #Cut out everything except events
         data['event'] = data['event']['events']
-        print("EVENT: ", data['event'])
 
 def function2Test():
     return True
@@ -77,19 +76,26 @@ def prep_travel_data():
         return 'Es konnte keine Prognose zur heutigen Reisezeit ermittelt werden. '
 
 def prep_event_data():
-    if data['event']:    
+    if data['event'] is not []:    
         msg = 'Heute stehen folgende Termine an: '
+        print("Event :", data['event'])
         for event in data['event']:
-            start = datetime.strptime(data['event']['start'], '%Y-%m-%dT%H:%M:%S%z')
-            msg += 'Von ' + str(start.strftime('%H:%M'))
-            end = datetime.strptime(data['event']['end'], '%Y-%m-%dT%H:%M:%S%z')
-            msg += 'Von ' + str(end.strftime('%H:%M'))
-            place = data['event']['location']
-            if place != '':
-                msg += ' in ' + place
-            summary = data['event']['summary']
-            msg += ' hast du ein Termin für ' + summary
+            #start of event
+            start = datetime.strptime(event['start'], '%Y-%m-%dT%H:%M:%S%z')
+            msg += 'Von ' + str(start.strftime('%H:%M')) + ' '
+
+            #end of event
+            end = datetime.strptime(event['end'], '%Y-%m-%dT%H:%M:%S%z')
+            msg += 'bis ' + str(end.strftime('%H:%M')) + ' '
+
+            #event location
+            if event['location'] != '':
+                msg += 'in ' + event['location'] + ' '
+
+            #event summary
+            msg += 'hast du ein Termin für ' + event['summary']
             msg +='. '
+
         return msg
     else:
         return 'Es stehen für heute keine Termine an.'
@@ -115,12 +121,16 @@ if __name__ == "__main__": # pragma: no cover
     while True:
         #get current date and time
         now = datetime.now()
+        
+        #below line only for testing purposes
+        now = now.replace(day=18)
+        
         currentTime = now.strftime('%H:%M')
 
-        print("DEBUG ", __file__, ": ", currentTime, " == ", data['start'], ", ", data['lastWelcome'], " == ", now.date())
-
+        #for multiple repetisions:
+        if currentTime != data['start']:
         #check if currentTime is welcomeTime and if welcomeMessage was already played 
-        if currentTime != data['start'] and data['lastWelcome'] != now.date():
+        #if currentTime == data['start'] and data['lastWelcome'] != now.date():
             #update last date welcomeTime is played to prevent second excecution
             data['lastWelcome'] = now.date()   
 
@@ -156,13 +166,12 @@ if __name__ == "__main__": # pragma: no cover
                 msg_weather + \
                 msg_travel + \
                 msg_event + \
-                " Ich wünsche dir noch einen schönen Tag."
+                "Das war alles. Ich wünsche dir noch einen schönen Tag."
             
             print("OUTPUT ", __file__, ": ", tts)
             client.publish('tts', tts)
 
         #wait some time before polling again
-        print("DEBUG ", __file__, ": ", "Waiting 30s")
         time.sleep(15)
 
     #Sollte am Ende stehen, da damit die MQTT-Verbindung beendet wird
