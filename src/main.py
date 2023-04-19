@@ -18,7 +18,6 @@ if __name__ == "__main__": # pragma: no cover
         
         #below line only for testing purposes
         now = now.replace(day=18)
-        now.replace(tzinfo=timezone.utc).astimezone(tz=None)
         currentTime = now.strftime('%H:%M')
 
         #for multiple repetisions:
