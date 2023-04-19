@@ -61,11 +61,15 @@ class Messenger(metaclass=SingletonMeta):
             self.client.subscribe((self.data.topic_list[topic]['response'], 0))
     
     def request(self,requestTopic,responseTopic,data=None):
-        q = Queue()
-        process = Process(target=mqttRRP,args=(q,requestTopic,responseTopic,data))
-        process.start()
-        process.join(timeout=3)
-        process.terminate()
+        try: 
+            q = Queue()
+            process = Process(target=mqttRRP,args=(q,requestTopic,responseTopic,data))
+            process.start()
+            process.join(timeout=3)
+            process.terminate()
+        except:
+            return(False)
+        return(True)
 
     def _on_message(self,client, userdata,msg):
         print("DEBUG: ", __file__, 'Messsage from ', msg.topic, ' contains: ', str(msg.payload.decode("utf-8")))

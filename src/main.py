@@ -22,11 +22,11 @@ if __name__ == "__main__": # pragma: no cover
         currentTime = now.strftime('%H:%M')
 
         #for multiple repetisions:
-        if currentTime != mqttConnection.getData().data['start']:
+        if currentTime != mqttConnection.get_data().data['start']:
         #check if currentTime is welcomeTime and if welcomeMessage was already played 
         #if currentTime == data['start'] and data['lastWelcome'] != now.date():
             #update last date welcomeTime is played to prevent second excecution
-            mqttConnection.getData().data['lastWelcome'] = now.date()   
+            mqttConnection.get_data().data['lastWelcome'] = now.date()   
 
             #get required data for welcome message 
             mqttConnection.request_weather()                      
@@ -37,22 +37,22 @@ if __name__ == "__main__": # pragma: no cover
             #wait till required date is initialized
             start_time = time.time()
             passed = 0.0
-            while  mqttConnection.getData().data['priority'] is None or passed > 3.0:
+            while  mqttConnection.get_data().data['priority'] is None or passed > 3.0:
                 end_time = time.time()
                 passed = end_time - start_time
                 pass 
 
             #if priority data is still none, skip rideTime request
-            if  mqttConnection.getData().data['priority'] is not None:
+            if  mqttConnection.get_data().data['priority'] is not None:
                 mqttConnection.request_rideTime()    
 
             #wait a bit for message to come in 
             time.sleep(3)
 
             #prepare data
-            msg_weather = mqttConnection.getData().prep_weather_data()
-            msg_travel  = mqttConnection.getData().prep_travel_data()
-            msg_event   = mqttConnection.getData().prep_event_data()
+            msg_weather = mqttConnection.get_data().prep_weather_data()
+            msg_travel  = mqttConnection.get_data().prep_travel_data()
+            msg_event   = mqttConnection.get_data().prep_event_data()
 
             #build tts message and publish message to tts
             tts = "Guten Morgen, es ist " + \
