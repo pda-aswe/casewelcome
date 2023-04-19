@@ -21,7 +21,7 @@ class Messenger(metaclass=SingletonMeta):
 
         #connect to mqtt 
         self.client = mqtt.Client()
-        self.client.on_connect = self.__on_connect
+        self.client.on_connect = self._on_connect
         self.client.on_message = self._on_message
 
     def get_data(self):
@@ -56,8 +56,7 @@ class Messenger(metaclass=SingletonMeta):
             self.client.disconnect()
         return True
     
-    def __on_connect(self, client, userdata, flags, rc):
-        #Subscribe to topic to receive response-messages
+    def _on_connect(self, client, userdata, flags, rc):
         for topic in self.data.topic_list:
             self.client.subscribe((self.data.topic_list[topic]['response'], 0))
     
