@@ -22,7 +22,7 @@ class Messenger(metaclass=SingletonMeta):
         #connect to mqtt 
         self.client = mqtt.Client()
         self.client.on_connect = self.__on_connect
-        self.client.on_message = self.__on_message
+        self.client.on_message = self._on_message
 
     def getData(self):
         return self.data
@@ -61,14 +61,14 @@ class Messenger(metaclass=SingletonMeta):
         for topic in self.data.topic_list:
             self.client.subscribe((self.data.topic_list[topic]['response'], 0))
     
-    def _request(self,requestTopic,responseTopic,data=None):
+    def request(self,requestTopic,responseTopic,data=None):
         q = Queue()
         process = Process(target=mqttRRP,args=(q,requestTopic,responseTopic,data))
         process.start()
         process.join(timeout=3)
         process.terminate()
 
-    def __on_message(self,client, userdata,msg):
+    def _on_message(self,client, userdata,msg):
         print("DEBUG: ", __file__, 'Messsage from ', msg.topic, ' contains: ', str(msg.payload.decode("utf-8")))
         #welcomeTime: time welcome message should be played
         if msg.topic == self.data.topic_list['welcome']['response']:
@@ -110,16 +110,16 @@ class Messenger(metaclass=SingletonMeta):
         self.client.publish('tts',msg)
 
     def request_welcomeTime(self):
-        return self._request(self.data.topic_list['welcome']['request'],self.data.topic_list['welcome']['response'])
+        return self.request(self.data.topic_list['welcome']['request'],self.data.topic_list['welcome']['response'])
 
     def request_weather(self):
-        return self._request(self.data.topic_list['weather']['request'],self.data.topic_list['weather']['response'])
+        return self.request(self.data.topic_list['weather']['request'],self.data.topic_list['weather']['response'])
 
     def request_location(self):
-        return self._request(self.data.topic_list['location']['request'],self.data.topic_list['location']['response'])
+        return self.request(self.data.topic_list['location']['request'],self.data.topic_list['location']['response'])
         #request travel priority by which the user prefers to travel
     def request_priority(self):
-        return self._request(self.data.topic_list['priority']['request'],self.data.topic_list['priority']['response'])
+        return self.request(self.data.topic_list['priority']['request'],self.data.topic_list['priority']['response'])
 
         #request travel time, needs location and transport priority
     def request_rideTime(self):
@@ -142,7 +142,7 @@ class Messenger(metaclass=SingletonMeta):
             elif vehicle == 'publicTransport':
                 message = json.dumps({"from":self.data.location['home']['publicID'],"to":self.data.location['uni']['publicID'],"transportType":vehicle})
                     
-            return self._request(self.data.topic_list['ride']['request'],self.data.topic_list['ride']['response'],message)
+            return self.request(self.data.topic_list['ride']['request'],self.data.topic_list['ride']['response'],message)
         except:
             return(False)
 
@@ -152,7 +152,7 @@ class Messenger(metaclass=SingletonMeta):
         endTime = str(date) + 'T23:59:59+02:00'
         message = json.dumps({'start':startTime,'end':endTime})
 
-        return self._request(self.data.topic_list['appointment']['request'],self.data.topic_list['appointment']['response'], message)
+        return self.request(self.data.topic_list['appointment']['request'],self.data.topic_list['appointment']['response'], message)
 
 
 
