@@ -3,93 +3,166 @@ import paho.mqtt.subscribe as subscribe
 import paho.mqtt.publish as publish
 
 from multiprocessing import Process, Queue
+from datetime import datetime
 
 import json
 import os
+import re
 
-from data import topic_list, location, data
+from data import Data
 
-#requests time when welcome message should be played
-#time is defined in preference in the main process
-def request_welcomeTime(client):
-    return __request(client,topic_list['welcome']['request'],topic_list['welcome']['response'])
+from singleton import SingletonMeta
 
-#request current weather data from weather service
-def request_weather(client):
-    return __request(client,topic_list['weather']['request'],topic_list['weather']['response'])
+class Messenger(metaclass=SingletonMeta):
+    def __init__(self):      
+        self.connected = False
+        self.mqtt_address = ''
+        self.data = Data()
 
-#request location of common places (e.g. home, work, uni)
-def request_location(client):
-    return __request(client,topic_list['location']['request'],topic_list['location']['response'])
+        #connect to mqtt 
+        self.client = mqtt.Client()
+        self.client.on_connect = self.__on_connect
+        self.client.on_message = self.__on_message
 
-#request travel priority by which the user prefers to travel
-def request_priority(client):
-    return __request(client,topic_list['priority']['request'],topic_list['priority']['response'])
+    def getData(self):
+        return self.data
+    
+    def getMQTTAddress(self):
+        return self.mqtt_address
 
-#request travel time, needs location and transport priority
-def request_rideTime(client):
-    try:
-        vehicle = data['priority'][0]
+    def _getEnvironment(self):
+        docker_container = os.environ.get('DOCKER_CONTAINER', False)
+        if docker_container:
+            mqtt_address = "broker"
+        else:
+            mqtt_address = "localhost"
+        return mqtt_address
+        
+    def __on_connect(self, client, userdata, flags, rc):
+        #Subscribe to topic to receive response-messages
+        for topic in self.data.topic_list:
+            self.client.subscribe((self.data.topic_list[topic]['response'], 0))
 
-        #dependend on transport option different data is required for a request
-        if vehicle == 'car' or vehicle == 'pedestrian' or vehicle == 'bicycle':
-            message = json.dumps({
-                "from":{
-                    "lat":location['home']['lat'],
-                    "lon":location['home']['long']},
-                "to":{
-                    "lat":location['uni']['lat'],
-                    "lon":location['uni']['long']},
-                "transportType":vehicle
-            })
+    def connect(self):
+        if not self.connected:
+            try:
+                self.mqtt_address = self._getEnvironment()
+                self.client.connect(self.mqtt_address, 1883, 60)
+                self.client.loop_start()
+                self.connected = True
+            except:
+                return False
+        return True
 
-        #public transport required stationid from api, henceforth fixed ids are used
-        elif vehicle == 'publicTransport':
-            message = json.dumps({"from":location['home']['publicID'],"to": location['uni']['publicID'],"transportType":vehicle})
+    def disconnect(self):
+        if self.connected:
+            self.connected = False
+            self.client.loop_stop()
+            self.client.disconnect()
+        return True
+    
+    def _request(self,requestTopic,responseTopic,data=None):
+        q = Queue()
+        process = Process(target=mqttRRP,args=(q,requestTopic,responseTopic,data))
+        process.start()
+        process.join(timeout=3)
+        process.terminate()
+
+    def __on_message(self,client, userdata,msg):
+        print("DEBUG: ", __file__, 'Messsage from ', msg.topic, ' contains: ', str(msg.payload.decode("utf-8")))
+        #welcomeTime: time welcome message should be played
+        if msg.topic == self.data.topic_list['welcome']['response']:
+            welcomeTime = datetime.strptime(str(msg.payload.decode("utf-8")),'%H:%M')
+            self.data.data['start'] = welcomeTime.strftime('%H:%M')
+
+        elif msg.topic == self.data.topic_list['weather']['response']:
+            self.data.data['weather'] = json.loads(msg.payload.decode("utf-8"))
+
+        #location: location data required for requesting rideTime
+        elif msg.topic.__contains__(self.data.topic_list['location']['root']):
+            subpath = re.sub(self.data.topic_list['location']['root'],'',msg.topic)
+            place = re.sub('/.+', '', subpath)
+            type = re.sub('.+/', '', subpath)
+
+            if type == 'lat' or type == 'long':
+                self.data.location[place][type] = float(msg.payload.decode("utf-8"))
+            else:
+                self.data.location[place][type] = str(msg.payload.decode("utf-8"))
             
-        return __request(client,topic_list['ride']['request'],topic_list['ride']['response'],message)
-    except:
-        return(False)
+        #priority: which transport option is prefered
+        elif msg.topic == self.data.topic_list['priority']['response']:
+            self.data.data['priority'] = json.loads(msg.payload.decode("utf-8"))
 
-def request_appointment(client, date):
-    #Get all todays appointments from start to end of day
-    startTime = str(date) + 'T00:00:00+02:00'
-    endTime = str(date) + 'T23:59:59+02:00'
-    message = json.dumps({'start':startTime,'end':endTime})
+        #ride: returns time for users daily commute from home to uni/work
+        elif msg.topic == self.data.topic_list['ride']['response']:
+            self.data.data['travel'] = json.loads(msg.payload.decode("utf-8"))
+            self.data.data['travel'] = self.data.data['travel']['travelTime']
 
-    return __request(client,topic_list['appointment']['request'],topic_list['appointment']['response'], message)
+        #appointment: appointments the user has for the day
+        elif msg.topic == self.data.topic_list['appointment']['response']:
+            self.data.data['event'] = json.loads(msg.payload.decode("utf-8"))
+            self.data.data['event'] = self.data.data['event']['events']
 
-#Request data with request-response-pattern
-def __request(self,requestTopic,responseTopic, data=None):
-    q = Queue()
-    process = Process(target=mqttRRP, args=(q,requestTopic,responseTopic, data))
-    process.start()
-    process.join(timeout=3)
-    process.terminate()
-    print("PUBLISH ", __file__, ": Message sent to ", requestTopic, ", listen to ", responseTopic)
+    def publish_to_tts(self,msg):
+        self.client.publish('tts',msg)
 
-    if process.exitcode == 0:
+    def request_welcomeTime(self):
+        return self._request(self.data.topic_list['welcome']['request'],self.data.topic_list['welcome']['response'])
+
+    def request_weather(self):
+        return self._request(self.data.topic_list['weather']['request'],self.data.topic_list['weather']['response'])
+
+    def request_location(self):
+        return self._request(self.data.topic_list['location']['request'],self.data.topic_list['location']['response'])
+        #request travel priority by which the user prefers to travel
+    def request_priority(self):
+        return self._request(self.data.topic_list['priority']['request'],self.data.topic_list['priority']['response'])
+
+        #request travel time, needs location and transport priority
+    def request_rideTime(self):
         try:
-            mqttData = q.get(timeout=1)
-            return mqttData
+            vehicle = self.data.data['priority'][0]
+
+            #dependend on transport option different data is required for a request
+            if vehicle == 'car' or vehicle == 'pedestrian' or vehicle == 'bicycle':
+                message = json.dumps({
+                    "from":{
+                        "lat":self.data.location['home']['lat'],
+                        "lon":self.data.location['home']['long']},
+                    "to":{
+                        "lat":self.data.location['uni']['lat'],
+                        "lon":self.data.location['uni']['long']},
+                    "transportType":vehicle
+                })
+
+            #public transport required stationid from api, henceforth fixed ids are used
+            elif vehicle == 'publicTransport':
+                message = json.dumps({"from":self.data.location['home']['publicID'],"to":self.data.location['uni']['publicID'],"transportType":vehicle})
+                    
+            return self._request(self.data.topic_list['ride']['request'],self.data.topic_list['ride']['response'],message)
         except:
             return(False)
-        
-#Build mqtt-reponse-request
-def mqttRRP(q,requestTopic,responseTopic, data=None):
-    mqtt_address = getEnvironment()
+
+    def request_appointment(self,date):
+        #Get all todays appointments from start to end of day
+        startTime = str(date) + 'T00:00:00+02:00'
+        endTime = str(date) + 'T23:59:59+02:00'
+        message = json.dumps({'start':startTime,'end':endTime})
+
+        return self._request(self.data.topic_list['appointment']['request'],self.data.topic_list['appointment']['response'], message)
+
+
+
+def mqttRRP(q,requestTopic,responseTopic,data=None):
+    docker_container = os.environ.get('DOCKER_CONTAINER', False)
+    if docker_container:
+        mqtt_address = "broker"
+    else:
+        mqtt_address = "localhost"
+
     if data is None:
         publish.single(requestTopic,hostname=mqtt_address,port=1883)
     else:
         publish.single(requestTopic,payload=data,hostname=mqtt_address,port=1883)
     mqttResponse = subscribe.simple(responseTopic,hostname=mqtt_address,port=1883).payload
     q.put(mqttResponse)
-
-# Get docker environment
-def getEnvironment():
-    docker_container = os.environ.get('DOCKER_CONTAINER', False)
-    if docker_container:
-        mqtt_address = "broker"
-    else:
-        mqtt_address = "localhost"
-    return mqtt_address
