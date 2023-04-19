@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 import time
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import messenger
 
@@ -14,7 +14,7 @@ if __name__ == "__main__": # pragma: no cover
     mqttConnection.request_welcomeTime()
     while True:
         #get current date and time
-        now = datetime.now()
+        now = datetime.utcnow()
         
         #below line only for testing purposes
         now = now.replace(day=18)
@@ -62,6 +62,7 @@ if __name__ == "__main__": # pragma: no cover
                 msg_event + \
                 "Das war alles. Ich wünsche dir noch einen schönen Tag."
             
+            #skipMsg = 'Guten Morgen, es ist ' + currentTime + ' In Stuttgart wird das Wetter heute Überwiegend bewölkt. Heute wird eine Temperatur von 12.33 Grad Celcius erwarted mit einer Feuchtigkeit von 72 Prozent. Deine vorraussichtliche Reisezeit beträgt 20 Minuten. Heute stehen folgende Termine an: Von 23:00 bis 00:00 hast du ein Termin für asdf. Das war alles. Ich wünsche dir noch einen schönen Tag.'
             print("OUTPUT ", __file__, ": ", tts)
             mqttConnection.publish_to_tts(tts)
         
