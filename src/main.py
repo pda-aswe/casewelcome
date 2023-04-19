@@ -16,14 +16,16 @@ if __name__ == "__main__": # pragma: no cover
         #get current date and time
         now = datetime.utcnow()
         
-        #below line only for testing purposes
-        now = now.replace(day=18)
+        #below commented line only for testing purposes
+        #for the 18th of april is a dummy event saves
+        #now = now.replace(day=18)
+
         currentTime = now.strftime('%H:%M')
 
         #for multiple repetisions:
-        if currentTime != mqttConnection.get_data().data['start']:
+        #if currentTime != mqttConnection.get_data().data['start']:
         #check if currentTime is welcomeTime and if welcomeMessage was already played 
-        #if currentTime == data['start'] and data['lastWelcome'] != now.date():
+        if currentTime == mqttConnection.get_data().data['start'] and mqttConnection.get_data().data['lastWelcome'] != now.date():
             #update last date welcomeTime is played to prevent second excecution
             mqttConnection.get_data().data['lastWelcome'] = now.date()   
 
