@@ -30,23 +30,18 @@ class Messenger(metaclass=SingletonMeta):
     def getMQTTAddress(self):
         return self.mqtt_address
 
-    def _getEnvironment(self):
+    def getEnvironment(self):
         docker_container = os.environ.get('DOCKER_CONTAINER', False)
         if docker_container:
             mqtt_address = "broker"
         else:
             mqtt_address = "localhost"
         return mqtt_address
-        
-    def __on_connect(self, client, userdata, flags, rc):
-        #Subscribe to topic to receive response-messages
-        for topic in self.data.topic_list:
-            self.client.subscribe((self.data.topic_list[topic]['response'], 0))
 
     def connect(self):
         if not self.connected:
             try:
-                self.mqtt_address = self._getEnvironment()
+                self.mqtt_address = self.getEnvironment()
                 self.client.connect(self.mqtt_address, 1883, 60)
                 self.client.loop_start()
                 self.connected = True
@@ -60,6 +55,11 @@ class Messenger(metaclass=SingletonMeta):
             self.client.loop_stop()
             self.client.disconnect()
         return True
+    
+    def __on_connect(self, client, userdata, flags, rc):
+        #Subscribe to topic to receive response-messages
+        for topic in self.data.topic_list:
+            self.client.subscribe((self.data.topic_list[topic]['response'], 0))
     
     def _request(self,requestTopic,responseTopic,data=None):
         q = Queue()
@@ -102,6 +102,9 @@ class Messenger(metaclass=SingletonMeta):
         elif msg.topic == self.data.topic_list['appointment']['response']:
             self.data.data['event'] = json.loads(msg.payload.decode("utf-8"))
             self.data.data['event'] = self.data.data['event']['events']
+
+        else:
+            return(False)
 
     def publish_to_tts(self,msg):
         self.client.publish('tts',msg)
