@@ -24,13 +24,13 @@ class Messenger(metaclass=SingletonMeta):
         self.client.on_connect = self.__on_connect
         self.client.on_message = self._on_message
 
-    def getData(self):
+    def get_data(self):
         return self.data
     
-    def getMQTTAddress(self):
+    def get_mqtt_address(self):
         return self.mqtt_address
 
-    def getEnvironment(self):
+    def get_environment(self):
         docker_container = os.environ.get('DOCKER_CONTAINER', False)
         if docker_container:
             mqtt_address = "broker"
@@ -41,7 +41,7 @@ class Messenger(metaclass=SingletonMeta):
     def connect(self):
         if not self.connected:
             try:
-                self.mqtt_address = self.getEnvironment()
+                self.mqtt_address = self.get_environment()
                 self.client.connect(self.mqtt_address, 1883, 60)
                 self.client.loop_start()
                 self.connected = True
